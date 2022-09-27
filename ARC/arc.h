@@ -29,14 +29,14 @@ class PageIter  {
 template <typename PageT>
 class ArcCache {   
     private:
-        std::list<PageT> T1 = {}; // top of L1
-        std::list<PageT> T2 = {}; // top of L2
-        std::list<PageT> B1 = {}; // bottom of L1
-        std::list<PageT> B2 = {}; // bottom of L2
+        std::list<PageT> T1{}; // top of L1
+        std::list<PageT> T2{}; // top of L2
+        std::list<PageT> B1{}; // bottom of L1
+        std::list<PageT> B2{}; // bottom of L2
         std::map<PageT, PageIter<PageT>> page_map;
 
         int cache_size = 1; // named "c" in paper
-        int p_size  = 0; // named "p" in paper
+        int p_size  = 0;    // named "p" in paper
 
         void case_1  (PageIter<PageT> page_it, SourceList page_source);
         void case_2  (PageIter<PageT> page_it, SourceList page_source);
@@ -48,11 +48,8 @@ class ArcCache {
 
     public:
         void cache_printer () const;
-        bool push(PageT page);        // returns true if hit, false if miss
-        ArcCache(int size) {
-            cache_size = (size / 2) >= 1 ? size / 2 : 1;
-        }
-
+        bool push(PageT page); // returns true if hit, false if miss
+        ArcCache(int size): cache_size{(size / 2) >= 1 ? size / 2 : 1} {}
         ArcCache () {}
 };
 
@@ -206,4 +203,4 @@ void ArcCache <PageT>::cache_printer () const
     list_printer (B2, "B2");
 }
 
-}
+} // namespace cache
