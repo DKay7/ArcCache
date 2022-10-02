@@ -1,7 +1,6 @@
-#include <unordered_map>
 #include <iostream>
 #include <list>
-#include <map>
+#include <unordered_map>
 
 namespace cache {
 
@@ -16,172 +15,177 @@ enum SourceList {
 template <typename PageT>
 class PageIter  {
     private:
-        using list_iter = std::list<PageT>::iterator;     
+        using list_iter = typename std::list<PageT>::const_iterator;     
     public:
-        std::list<PageT>::iterator page_ptr;
-        SourceList source_list = SourceList::invalid;
-        
-        // PageIter(list_iter iter, SourceList source):
-        //     page_ptr(iter) source_list(source) {}
+        list_iter page_ptr_;
+        SourceList source_list_;
+
+        PageIter (list_iter page_ptr, SourceList source): 
+             page_ptr_(page_ptr), source_list_(source) {}
         
 };
 
-template <typename PageT>
+template <typename KeyT, typename PageT>
 class ArcCache {   
     private:
-        std::list<PageT> T1{}; // top of L1
-        std::list<PageT> T2{}; // top of L2
-        std::list<PageT> B1{}; // bottom of L1
-        std::list<PageT> B2{}; // bottom of L2
-        std::map<PageT, PageIter<PageT>> page_map;
+        std::list<PageT> T1; // top of L1
+        std::list<PageT> T2; // top of L2
+        std::list<PageT> B1; // bottom of L1
+        std::list<PageT> B2; // bottom of L2
+        std::unordered_map<KeyT, PageIter<PageT>> page_hashtable;
 
         int cache_size = 1; // named "c" in paper
         int p_size  = 0;    // named "p" in paper
 
-        void case_1  (PageIter<PageT> page_it, SourceList page_source);
-        void case_2  (PageIter<PageT> page_it, SourceList page_source);
-        void case_3  (PageIter<PageT> page_it, SourceList page_source);
-        void case_4_1(SourceList page_source);
-        void case_4_2(SourceList page_source);
-        void replace (SourceList page_source);
-        void list_printer (const std::list <PageT> &list, std::string list_name) const;
+        void page_was_found (const PageIter<PageT> &page_it, const KeyT &key);  // processing cases 1-3 from paper
+        void case_4_1();                                                        // proceses case 4-A from paper
+        void case_4_2();                                                        // proceses case 4-A from paper
+        void replace (const SourceList page_source);
+        void list_printer(const std::list <PageT> &list, const std::string list_name) const;
+        void hashtable_printer() const;
 
     public:
-        void cache_printer () const;
-        bool push(PageT page); // returns true if hit, false if miss
-        ArcCache(int size): cache_size{(size / 2) >= 1 ? size / 2 : 1} {}
+        ArcCache(int size): T1(), T2(), B1(), B2(), cache_size{(size / 2) >= 1 ? size / 2 : 1} {}
         ArcCache () {}
+        bool push(const KeyT &key, const PageT &page);      // returns true if hit, false if miss
+        bool lookup(const KeyT &key) const;                 // returns true if hit, false if miss
+        void cache_printer () const;
+
 };
 
-template <typename PageT>
-bool ArcCache<PageT>::push(PageT page) {
+template <typename KeyT, typename PageT>
+bool ArcCache<KeyT,PageT>::lookup (const KeyT &key) const {
+    auto cached_page = page_hashtable.find(key);
 
-    auto cached_page = page_map.find(page);
+    if (cached_page != page_hashtable.end())
+        return true;
+    
+    return false;
+}
+
+template <typename KeyT, typename PageT>
+bool ArcCache<KeyT, PageT>::push(const KeyT &key, const PageT &page) {
+
+    auto cached_page = page_hashtable.find(key);
     SourceList page_source = invalid;
-    bool is_hit = false;
 
-    if (cached_page != page_map.end()) {
-        page_source = cached_page->second.source_list;
-        is_hit = true;
+    if (cached_page != page_hashtable.cend()) {
+        page_was_found (cached_page->second, cached_page->first);
+        T2.push_front(page);
+		page_hashtable.erase(key);
+        page_hashtable.insert({key, {T2.cbegin(), SourceList::T2}});
+
+        return true;
     }
 
-    if (page_source == SourceList::T1 or page_source == SourceList::T2)
-        case_1(cached_page->second, page_source);
+    int L1_size = T1.size() + B1.size();
+    int L2_size = T2.size() + B2.size();
 
-    else if (page_source == SourceList::B1)
-        case_2(cached_page->second, page_source);
-
-    else if (page_source == SourceList::B2)
-        case_3(cached_page->second, page_source);
+    if (L1_size == cache_size)
+        case_4_1 ();
     
-    else {
-        int L1_size = T1.size() + B1.size();
-        int L2_size = T2.size() + B2.size();
+    else if (L1_size < cache_size and L1_size + L2_size >= cache_size)
+        case_4_2 ();
+    
+    T1.push_front(page);
+    page_hashtable.insert({key, {T1.cbegin(), SourceList::T1}});
 
-        if (L1_size == cache_size)
-            case_4_1 (page_source);
+
+    return false;
+}
+
+template <typename KeyT, typename PageT>
+void ArcCache<KeyT, PageT>::page_was_found (const PageIter<PageT> &page_it, const KeyT &key) {
+
+    switch (page_it.source_list_) {
+        case SourceList::T1:
+            T1.erase(page_it.page_ptr_);
+            break;
+
+        case SourceList::T2:
+            T2.erase(page_it.page_ptr_);
+            break;
         
-        else if (L1_size < cache_size and L1_size + L2_size >= cache_size)
-            case_4_2 (page_source);
-        
-        T1.push_front(page);
-        page_map[page] = {T1.begin(), SourceList::T1};
+        case SourceList::B1: {
+            p_size = std::min<int> (cache_size, p_size + std::max<int> (B2.size() / B1.size(), 1));
+            replace(SourceList::B1);
+            B1.erase(page_it.page_ptr_);
+            break;
+        }
+        case SourceList::B2: {
+            p_size = std::max<int> (0, p_size - std::max<int> (B1.size() / B2.size(), 1));
+            replace (SourceList::B2);
+            B2.erase(page_it.page_ptr_);
+            break;
+        }
+        default:
+            break;
     }
 
-    return is_hit;
 }
 
-template <typename PageT>
-void ArcCache<PageT>::case_1 (PageIter<PageT> page_it, SourceList page_source) {
-    PageT page = *(page_it.page_ptr);
 
-    if (page_source == SourceList::T1)
-        T1.erase(page_it.page_ptr);
-    else
-        T2.erase(page_it.page_ptr);
-    
-    T2.push_front(page);
-    page_map[page] = {T2.begin(), SourceList::T2};
-}
-
-template <typename PageT>
-void ArcCache<PageT>::case_2 (PageIter<PageT> page_it, SourceList page_source) {
-    p_size = std::min<int> (cache_size, p_size + std::max<int> (B2.size() / B1.size(), 1));
-    PageT page = *(page_it.page_ptr);
-  
-    replace (page_source);
-
-    B1.erase(page_it.page_ptr);
-    
-    T2.push_front(page);
-    page_map[page] = {T2.begin(), SourceList::T2};
-}
-
-template <typename PageT>
-void ArcCache<PageT>::case_3 (PageIter<PageT> page_it, SourceList page_source) {
-    p_size = std::max<int> (0, p_size - std::max<int> (B1.size() / B2.size(), 1));
-    PageT page = *(page_it.page_ptr);
-
-    replace (page_source);
-
-    B2.erase(page_it.page_ptr);
-    
-    T2.push_front(page);
-    page_map[page] = {T2.begin(), SourceList::T2};
-}
-
-template <typename PageT>
-void ArcCache<PageT>::case_4_1 (SourceList page_source) {
-    PageT page;
+template <typename KeyT, typename PageT>
+void ArcCache<KeyT, PageT>::case_4_1 () {
 
     if (T1.size() < cache_size) {
-        page = B1.back();
+        PageT lru_page = B1.back();
+        auto lru_page_key = page_hashtable.find(lru_page)->first;
+        page_hashtable.erase(lru_page_key);     
         B1.pop_back();
-
-        replace(page_source);
+        replace(SourceList::invalid); 
     }
     else {
-        page = T1.back();
+        PageT lru_page = T1.back();
+        auto lru_page_key = page_hashtable.find(lru_page)->first;
+        page_hashtable.erase(lru_page_key);
         T1.pop_back();
     }
 
-    page_map.erase(page);
 }
 
-template <typename PageT>
-void ArcCache<PageT>::case_4_2 (SourceList page_source) {
+template <typename KeyT, typename PageT>
+void ArcCache<KeyT, PageT>::case_4_2 () {
     int L1_size = T1.size() + B1.size();
     int L2_size = T2.size() + B2.size();
 
     if (L1_size + L2_size == 2 * cache_size) {
-        PageT page = B2.back();
+        PageT lru_page = B2.back();
+        auto lru_page_key = page_hashtable.find(lru_page)->first;
+        page_hashtable.erase(lru_page_key);
         B2.pop_back();
-        page_map.erase(page);
     }
+    
+    replace(SourceList::invalid);
 
-    replace(page_source);
 }
 
-template <typename PageT>
-void ArcCache<PageT>::replace (SourceList page_source) {
+template <typename KeyT, typename PageT>
+void ArcCache<KeyT, PageT>::replace (SourceList page_source) {
     if (T1.size() >= 1 and ((page_source == SourceList::B2 and T1.size() == p_size) or 
                             (T1.size() > p_size))) {
         PageT lru_page = T1.back();
+        auto lru_page_key = page_hashtable.find(lru_page)->first;
+        page_hashtable.erase(lru_page_key); 
+
         T1.pop_back();
         B1.push_front(lru_page);
-        page_map[lru_page] = {B1.begin(), SourceList::B1};
+        page_hashtable.insert({lru_page_key, {B1.cbegin(), SourceList::B1}});
 
         return;
     }
 
     PageT lru_page = T2.back();
+    auto lru_page_key = page_hashtable.find(lru_page)->first;
+    page_hashtable.erase(lru_page_key);
+
     T2.pop_back();
     B2.push_front(lru_page);
-    page_map[lru_page] = {B2.begin(), SourceList::B2};
+    page_hashtable.insert({lru_page_key, {B2.cbegin(), SourceList::B2}});
 } 
 
-template <typename PageT>
-void ArcCache <PageT>::list_printer (const std::list <PageT> &list, std::string list_name) const
+template <typename KeyT, typename PageT>
+void ArcCache<KeyT, PageT>::list_printer (const std::list <PageT> &list, std::string list_name) const
 {
     std::cout << "--------------------" << std::endl << list_name << ": ";
                                         
@@ -191,11 +195,13 @@ void ArcCache <PageT>::list_printer (const std::list <PageT> &list, std::string 
     std::cout << std::endl << "--------------------" << std::endl;    
 }
 
-template <typename PageT>
-void ArcCache <PageT>::cache_printer () const
+
+template <typename KeyT, typename PageT>
+void ArcCache<KeyT, PageT>::cache_printer () const
 {
     std::cout << "cache_size = " << cache_size << std::endl;
     std::cout << "p_size = "     << p_size     << std::endl;
+
 
     list_printer (T1, "T1");
     list_printer (T2, "T2");
@@ -203,4 +209,4 @@ void ArcCache <PageT>::cache_printer () const
     list_printer (B2, "B2");
 }
 
-} // namespace cache
+} // namespace cache    

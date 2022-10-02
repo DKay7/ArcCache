@@ -7,14 +7,14 @@ int main() {
     std::cin >> cache_size >> num_data;  
 
 
-    cache::ArcCache<int> arc(cache_size);
+    cache::ArcCache<int, int> arc(cache_size);
 
     long int cache_hit_cnt = 0;
     while (--num_data >= 0) {
         int page = 0;
         std::cin >> page;
         
-        cache_hit_cnt += arc.push(page);
+        cache_hit_cnt += arc.push(page, page);
     }
 
     #ifdef _DEBUG
