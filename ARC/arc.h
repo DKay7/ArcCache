@@ -48,35 +48,33 @@ class ArcCache {
         ArcCache(int size): T1(), T2(), B1(), B2(), cache_size{(size / 2) >= 1 ? size / 2 : 1} {}
         ArcCache () {}
         bool push(const KeyT &key, const PageT &page);      // returns true if hit, false if miss
-        bool lookup(const KeyT &key) const;                 // returns true if hit, false if miss
+        bool lookup(const KeyT &key);                       // returns true if hit, false if miss
         void cache_printer () const;
 
 };
 
 template <typename KeyT, typename PageT>
-bool ArcCache<KeyT,PageT>::lookup (const KeyT &key) const {
+bool ArcCache<KeyT, PageT>::lookup (const KeyT &key) {
     auto cached_page = page_hashtable.find(key);
-
-    if (cached_page != page_hashtable.end())
-        return true;
-    
-    return false;
-}
-
-template <typename KeyT, typename PageT>
-bool ArcCache<KeyT, PageT>::push(const KeyT &key, const PageT &page) {
-
-    auto cached_page = page_hashtable.find(key);
-    SourceList page_source = invalid;
 
     if (cached_page != page_hashtable.cend()) {
         page_was_found (cached_page->second, cached_page->first);
+        PageT page = *(cached_page->second.page_ptr_);
         T2.push_front(page);
 		page_hashtable.erase(key);
         page_hashtable.insert({key, {T2.cbegin(), SourceList::T2}});
 
         return true;
     }
+
+    return false;
+}
+
+template <typename KeyT, typename PageT>
+bool ArcCache<KeyT, PageT>::push(const KeyT &key, const PageT &page) {
+
+    if (lookup(key))
+        return true;
 
     int L1_size = T1.size() + B1.size();
     int L2_size = T2.size() + B2.size();

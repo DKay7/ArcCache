@@ -13,8 +13,12 @@ int main() {
     while (--num_data >= 0) {
         int page = 0;
         std::cin >> page;
-        
-        cache_hit_cnt += arc.push(page, page);
+        int key = page;
+
+        if (arc.lookup(key))
+            cache_hit_cnt += 1;
+        else
+            arc.push(key, page);
     }
 
     #ifdef _DEBUG
