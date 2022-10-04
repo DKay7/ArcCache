@@ -69,10 +69,10 @@ Program expects and generates tests in next format:
 We have reached next results on given here tests:
 ```
 Total result:
-    hits:  arc_cache[1189] < perfect_cache[21333]
-    hit percents:  arc_cache[0.29725%] < perfect_cache[5.33325%]
-    time:  arc_cache[0.13000 sec.] < perfect_cache[58.22000 sec.]
+ hits:  arc_cache[35748] > perfect_cache[20367]
+ hit percents:  arc_cache[4.46850%] > perfect_cache[2.54588%]
+ time:  arc_cache[0.21000 sec.] < perfect_cache[1.86000 sec.]
 ```
-Perfect cache is better than arc by **~17 times** because in first one we "can look up through future". But,
+Arc cache is better than perfect by **~2 times**. Also,
 
-Perfect cache execution time is worse than arc one by **~447 times**(!!), because in perfect cache we have to check up the future in each push. 
+Perfect cache execution time is worse than arc one by **~8 times**(!!), because in perfect cache we have to check up the future in each push.
