@@ -12,10 +12,10 @@ enum SourceList {
     B2 = 4,
 };
 
-template <typename PageT>
+template <typename KeyT, typename PageT>
 class PageIter  {
     private:
-        using list_iter = typename std::list<PageT>::const_iterator;     
+        using list_iter = typename std::list<std::pair<KeyT, PageT>>::const_iterator;     
     public:
         list_iter page_ptr_;
         SourceList source_list_;
@@ -28,24 +28,24 @@ class PageIter  {
 template <typename KeyT, typename PageT>
 class ArcCache {   
     private:
-        std::list<PageT> T1; // top of L1
-        std::list<PageT> T2; // top of L2
-        std::list<PageT> B1; // bottom of L1
-        std::list<PageT> B2; // bottom of L2
-        std::unordered_map<KeyT, PageIter<PageT>> page_hashtable;
+        std::list<std::pair<KeyT, PageT>> T1; // top of L1
+        std::list<std::pair<KeyT, PageT>> T2; // top of L2
+        std::list<std::pair<KeyT, PageT>> B1; // bottom of L1
+        std::list<std::pair<KeyT, PageT>> B2; // bottom of L2
+        std::unordered_map<KeyT, PageIter<KeyT, PageT>> page_hashtable;
 
         int cache_size = 1; // named "c" in paper
         int p_size  = 0;    // named "p" in paper
 
-        void page_was_found (const PageIter<PageT> &page_it);  // processing cases 1-3 from paper
-        void case_4_1();                                                        // proceses case 4-A from paper
-        void case_4_2();                                                        // proceses case 4-A from paper
+        void page_was_found (const PageIter<KeyT, PageT> &page_it); // processing cases 1-3 from paper
+        void case_4_1();                                            // proceses case 4-A from paper
+        void case_4_2();                                            // proceses case 4-A from paper
         void replace (const SourceList page_source);
-        void list_printer(const std::list <PageT> &list, const std::string list_name) const;
+        void list_printer(const std::list <std::pair<KeyT, PageT>> &list, const std::string list_name) const;
         void hashtable_printer() const;
 
     public:
-        ArcCache(int size): T1(), T2(), B1(), B2(), cache_size{(size / 2) >= 1 ? size / 2 : 1} {}
+        ArcCache(int size): T1(), T2(), B1(), B2(), cache_size{size >= 1 ? size : 1} {}
         ArcCache () {}
         bool push(const KeyT &key, const PageT &page);      // returns true if hit, false if miss
         bool lookup(const KeyT &key);                       // returns true if hit, false if miss
@@ -58,7 +58,7 @@ bool ArcCache<KeyT, PageT>::lookup (const KeyT &key) {
     auto cached_page = page_hashtable.find(key);
 
     if (cached_page != page_hashtable.cend()) {
-        PageT page = *(cached_page->second.page_ptr_);
+        std::pair<KeyT, PageT> page = *(cached_page->second.page_ptr_);
         page_was_found (cached_page->second);
         T2.push_front(page);
 		page_hashtable.erase(key);
@@ -85,7 +85,7 @@ bool ArcCache<KeyT, PageT>::push(const KeyT &key, const PageT &page) {
     else if (L1_size < cache_size and L1_size + L2_size >= cache_size)
         case_4_2 ();
     
-    T1.push_front(page);
+    T1.push_front({key, page});
     page_hashtable.insert({key, {T1.cbegin(), SourceList::T1}});
 
 
@@ -93,27 +93,27 @@ bool ArcCache<KeyT, PageT>::push(const KeyT &key, const PageT &page) {
 }
 
 template <typename KeyT, typename PageT>
-void ArcCache<KeyT, PageT>::page_was_found (const PageIter<PageT> &page_it) {
+void ArcCache<KeyT, PageT>::page_was_found (const PageIter<KeyT, PageT> &page_it) {
 
     switch (page_it.source_list_) {
         case SourceList::T1:
-            T1.erase(page_it.page_ptr_);
+            T1.remove({page_it.page_ptr_->first, page_it.page_ptr_->second});
             break;
-
+        
         case SourceList::T2:
-            T2.erase(page_it.page_ptr_);
+            T2.remove({page_it.page_ptr_->first, page_it.page_ptr_->second});
             break;
         
         case SourceList::B1: {
             p_size = std::min<int> (cache_size, p_size + std::max<int> (B2.size() / B1.size(), 1));
             replace(SourceList::B1);
-            B1.erase(page_it.page_ptr_);
+            B1.remove({page_it.page_ptr_->first, page_it.page_ptr_->second});
             break;
         }
         case SourceList::B2: {
             p_size = std::max<int> (0, p_size - std::max<int> (B1.size() / B2.size(), 1));
             replace (SourceList::B2);
-            B2.erase(page_it.page_ptr_);
+            B2.remove({page_it.page_ptr_->first, page_it.page_ptr_->second});
             break;
         }
         default:
@@ -127,16 +127,14 @@ template <typename KeyT, typename PageT>
 void ArcCache<KeyT, PageT>::case_4_1 () {
 
     if (T1.size() < cache_size) {
-        PageT lru_page = B1.back();
-        auto lru_page_key = page_hashtable.find(lru_page)->first;
-        page_hashtable.erase(lru_page_key);     
+        std::pair<KeyT, PageT> lru_page = B1.back();
+        page_hashtable.erase(lru_page.first);
         B1.pop_back();
         replace(SourceList::invalid); 
     }
     else {
-        PageT lru_page = T1.back();
-        auto lru_page_key = page_hashtable.find(lru_page)->first;
-        page_hashtable.erase(lru_page_key);
+        std::pair<KeyT, PageT> lru_page = T1.back();
+        page_hashtable.erase(lru_page.first);
         T1.pop_back();
     }
 
@@ -148,9 +146,8 @@ void ArcCache<KeyT, PageT>::case_4_2 () {
     int L2_size = T2.size() + B2.size();
 
     if (L1_size + L2_size == 2 * cache_size) {
-        PageT lru_page = B2.back();
-        auto lru_page_key = page_hashtable.find(lru_page)->first;
-        page_hashtable.erase(lru_page_key);
+        std::pair<KeyT, PageT> lru_page = B2.back();
+        page_hashtable.erase(lru_page.first);
         B2.pop_back();
     }
     
@@ -162,33 +159,31 @@ template <typename KeyT, typename PageT>
 void ArcCache<KeyT, PageT>::replace (SourceList page_source) {
     if (T1.size() >= 1 and ((page_source == SourceList::B2 and T1.size() == p_size) or 
                             (T1.size() > p_size))) {
-        PageT lru_page = T1.back();
-        auto lru_page_key = page_hashtable.find(lru_page)->first;
-        page_hashtable.erase(lru_page_key); 
+        std::pair<KeyT, PageT> lru_page = T1.back();
+        page_hashtable.erase(lru_page.first); 
 
         T1.pop_back();
         B1.push_front(lru_page);
-        page_hashtable.insert({lru_page_key, {B1.cbegin(), SourceList::B1}});
+        page_hashtable.insert({lru_page.first, {B1.cbegin(), SourceList::B1}});
 
         return;
     }
 
-    PageT lru_page = T2.back();
-    auto lru_page_key = page_hashtable.find(lru_page)->first;
-    page_hashtable.erase(lru_page_key);
+    std::pair<KeyT, PageT> lru_page = T2.back();
+    page_hashtable.erase(lru_page.first);
 
     T2.pop_back();
     B2.push_front(lru_page);
-    page_hashtable.insert({lru_page_key, {B2.cbegin(), SourceList::B2}});
+    page_hashtable.insert({lru_page.first, {B2.cbegin(), SourceList::B2}});
 } 
 
 template <typename KeyT, typename PageT>
-void ArcCache<KeyT, PageT>::list_printer (const std::list <PageT> &list, std::string list_name) const
+void ArcCache<KeyT, PageT>::list_printer (const std::list<std::pair<KeyT, PageT>> &list, std::string list_name) const
 {
-    std::cout << "--------------------" << std::endl << list_name << ": ";
+    std::cout << "--------------------" << std::endl << list_name << ": " << std::endl;
                                         
     for (auto list_iter: list)       
-        std::cout << list_iter << " ";
+        std::cout << "[" << list_iter.first << "]: " << list_iter.second  << std::endl;
                                         
     std::cout << std::endl << "--------------------" << std::endl;    
 }
