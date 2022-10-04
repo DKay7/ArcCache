@@ -47,15 +47,23 @@ You may need `--help` option, it's available for each of next steps.
 
 
 For example:
+- `cd Tests`
 - `python gen_test.py`
 - `python gen_ans.py ../build/ARC/arc_cache`
 - `python gen_ans.py ../build/PerfectCache/perfect_cache`
 - `python3 cmp_ans.py arc_cache perfect_cache`
 
+To run pipeline from above you can run:
+ - `cd Tests`
+ - `./process_all_tests.sh`
+
 To run only ARC cache tests you may want to do next steps:
 - Make sure you're in projects' root
 - `./ARC/run_tests.sh`
 
+To run only perfect-cache tests you may want to do next steps:
+- Make sure you're in projects' root
+- `./PerfectCache/run_tests.sh`
 ---
 
 ## Test format
@@ -69,10 +77,10 @@ Program expects and generates tests in next format:
 We have reached next results on given here tests:
 ```
 Total result:
- hits:  arc_cache[35748] > perfect_cache[20367]
- hit percents:  arc_cache[4.46850%] > perfect_cache[2.54588%]
- time:  arc_cache[0.21000 sec.] < perfect_cache[1.86000 sec.]
+ hits:  arc_cache[22579] < perfect_cache[65254]
+ hit percents:  arc_cache[4.51580%] < perfect_cache[13.05080%]
+ time:  arc_cache[0.32000 sec.] < perfect_cache[4.19000 sec.]
 ```
-Arc cache is better than perfect by **~2 times**. Also,
+Perfect cache is better than arc by **~2.8 times** because in first one we "can look up through future". But,
 
-Perfect cache execution time is worse than arc one by **~8 times**(!!), because in perfect cache we have to check up the future in each push.
+Perfect cache execution time is worse than arc one by **~13 times**(!!), because in perfect cache we have to check up the future in each push. 
