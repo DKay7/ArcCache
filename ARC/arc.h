@@ -37,7 +37,7 @@ class ArcCache {
         int cache_size = 1; // named "c" in paper
         int p_size  = 0;    // named "p" in paper
 
-        void page_was_found (const PageIter<PageT> &page_it, const KeyT &key);  // processing cases 1-3 from paper
+        void page_was_found (const PageIter<PageT> &page_it);  // processing cases 1-3 from paper
         void case_4_1();                                                        // proceses case 4-A from paper
         void case_4_2();                                                        // proceses case 4-A from paper
         void replace (const SourceList page_source);
@@ -58,8 +58,8 @@ bool ArcCache<KeyT, PageT>::lookup (const KeyT &key) {
     auto cached_page = page_hashtable.find(key);
 
     if (cached_page != page_hashtable.cend()) {
-        page_was_found (cached_page->second, cached_page->first);
         PageT page = *(cached_page->second.page_ptr_);
+        page_was_found (cached_page->second);
         T2.push_front(page);
 		page_hashtable.erase(key);
         page_hashtable.insert({key, {T2.cbegin(), SourceList::T2}});
@@ -93,7 +93,7 @@ bool ArcCache<KeyT, PageT>::push(const KeyT &key, const PageT &page) {
 }
 
 template <typename KeyT, typename PageT>
-void ArcCache<KeyT, PageT>::page_was_found (const PageIter<PageT> &page_it, const KeyT &key) {
+void ArcCache<KeyT, PageT>::page_was_found (const PageIter<PageT> &page_it) {
 
     switch (page_it.source_list_) {
         case SourceList::T1:
