@@ -38,7 +38,7 @@ def compare_ans (path_to_test_dir, first_exec_name, second_exec_name):
     first_exec_time  = None
     second_exec_time = None
     with open(test_file_name, "r") as test_file:
-        total_data_size = int(test_file.readline().split()[0])
+        total_data_size = int(test_file.readline().split()[1])
 
     with open(first_ans_file_name, "r") as ans_file:
         file_lines = ans_file.readlines()
@@ -56,8 +56,8 @@ def compare_ans (path_to_test_dir, first_exec_name, second_exec_name):
                "\t-Run ans generator first")
         return
     
-    first_percents  = first_hits  / total_data_size
-    second_percents = second_hits / total_data_size
+    first_percents  = (first_hits  / total_data_size) * 100
+    second_percents = (second_hits / total_data_size) * 100
 
     print(f"\033[92m hits:\t{first_exec_name}\033[1m[{first_hits}, {first_percents:.4f}%]\033[0m\033[92m", end="")
     print_compare_sign (first_hits, second_hits)
@@ -106,8 +106,8 @@ def main():
     print_compare_sign (results['first_hits'], results['second_hits'])
     print(f"\033[92m{second_exec_name}\033[1m[{results['second_hits']}\033[92m]\033[0m")
 
-    first_percents  = results['first_hits']  / results['total_data_size']
-    second_percents = results['second_hits'] / results['total_data_size']
+    first_percents  = (results['first_hits']  / results['total_data_size']) * 100
+    second_percents = (results['second_hits'] / results['total_data_size']) * 100
 
     print(f"\033[93m hit percents:\t{first_exec_name}\033[1m[{first_percents:.5f}%]\033[0m\033[93m", end="")
     print_compare_sign (first_percents, second_percents)
