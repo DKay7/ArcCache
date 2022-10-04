@@ -7,3 +7,4 @@ project(arc_comparational_test VERSION 2.0)
 
 add_subdirectory(ARC)
 add_subdirectory(PerfectCache)
+add_subdirectory(UnitTests)
