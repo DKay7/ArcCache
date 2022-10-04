@@ -21,6 +21,10 @@ To run program execute following lines:
 4. `cd ARC`
 5. `./arc_cache` to run program
 
+or
+
+4. `cd PerfectCache`
+5. `./perfect_cache` to run perfect cache
 ---
 
 ## Run tests
@@ -38,10 +42,10 @@ You may need `--help` option, it's available for each of next steps.
 - To compare cache hits of different cache algorithms `python3 compare_ans.py FIRST_EXEC_NAME SECOND_EXEC_NAME`
 
 For example:
-- `python3 test_generator.py`
-- `python3 ans_generator.py ../build/ARC/arc_cache`
-- `python3 ans_generator.py ../build/LRU/lru_cache`
-- `python3 compare_ans.py lru_cache arc_cache`
+- `python gen_test.py`
+- `python gen_ans.py ../build/ARC/arc_cache`
+- `python gen_ans.py ../build/PerfectCache/perfect_cache`
+- `python3 cmp_ans.py arc_cache perfect_cache`
 
 ---
 
@@ -51,3 +55,15 @@ Program expects and generates tests in next format:
 `CACHE_SIZE` `NUMBER_OF_DATA` 
 
 `DATA`
+
+## Results
+We have reached next results on given here tests:
+```
+Total result:
+    hits:  arc_cache[1189] < perfect_cache[21333]
+    hit percents:  arc_cache[0.29725%] < perfect_cache[5.33325%]
+    time:  arc_cache[0.13000 sec.] < perfect_cache[58.22000 sec.]
+```
+Perfect cache is better than arc by **~17 times** because in first one we "can look up through future". But,
+
+Perfect cache execution time is worse than arc one by **~447 times**(!!), because in perfect cache we have to check up the future in each push. 
