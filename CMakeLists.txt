@@ -6,4 +6,4 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 project(arc_comparational_test VERSION 2.0)
 
 add_subdirectory(ARC)
-add_subdirectory(LRU)
+add_subdirectory(PerfectCache)

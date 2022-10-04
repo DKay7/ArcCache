@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-for dir in TESTS/*; do
+for dir in Tests/*; do
     if [ -d "$dir" ]; then
         full_path="$dir/test"
         ans=$(cat $full_path | build/ARC/arc_cache)
