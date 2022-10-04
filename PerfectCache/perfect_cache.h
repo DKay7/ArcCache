@@ -51,13 +51,12 @@ bool PerfectCache<KeyT, PageT>::delete_last_element_if_needed() {
         for (auto& cache_list_element : cache_list_) {
             auto future_page = future_page_indexes_.find(cache_list_element);
             
-            if (future_page == future_page_indexes_.cend() or future_page->second.size() == 0) { 
+            if (future_page->second.size() == 0) {
                 // we found page wich we will no see in future, let's drop it!
-                page_to_drop = cache_list_.back(); 
+                page_to_drop = future_page->first; 
                 break;
             }
             else { // we'll see page in future once more
-                // int first_occurence = *min_element(std::begin(future_page->second), std::end(future_page->second));
                 int last_occurence = future_page->second.back();
                 if (last_occurence > max_occurence) {
                     max_occurence = last_occurence;
@@ -92,6 +91,8 @@ bool PerfectCache<KeyT, PageT>::delete_last_element_if_needed() {
 template <typename KeyT, typename PageT>
 bool PerfectCache<KeyT, PageT>::push (const KeyT& key, const PageT& page) {
     
+    future_page_indexes_[page].erase(future_page_indexes_[page].begin());
+
     if (lookup(key))
         return true;
 
@@ -116,7 +117,6 @@ bool PerfectCache<KeyT, PageT>::push (const KeyT& key, const PageT& page) {
 
     cache_list_.push_back(page);
     cache_hashtable_.insert({key, std::prev(cache_list_.cend())});
-    future_page_indexes_[page].erase(future_page_indexes_[page].begin());
     
     return false;
 }
