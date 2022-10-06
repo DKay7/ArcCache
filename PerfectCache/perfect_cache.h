@@ -10,16 +10,14 @@ class PerfectCache {
 
     private:
         int size_ = 0;
-        std::list<PageT> cache_list_;
-        using list_const_iter = typename std::list<PageT>::const_iterator;
-        std::unordered_map<KeyT, list_const_iter> cache_hashtable_;
-        std::unordered_map<PageT, std::vector<int>> future_page_indexes_;
+        std::unordered_map<KeyT, PageT> cache_hashtable_;
+        std::unordered_map<PageT, std::list<int>> future_page_indexes_;
         void fill_future_indexes(const std::vector<PageT>& pages);
         bool delete_last_element_if_needed();
 
     public:
         PerfectCache(const int size, const std::vector<PageT>& pages): 
-            size_(size), cache_list_(), cache_hashtable_(), future_page_indexes_() {
+            size_(size), cache_hashtable_(), future_page_indexes_() {
                 fill_future_indexes(pages);
         }
 
@@ -44,28 +42,31 @@ void PerfectCache<KeyT, PageT>::fill_future_indexes(const std::vector<PageT>& pa
 
 template <typename KeyT, typename PageT>
 bool PerfectCache<KeyT, PageT>::delete_last_element_if_needed() {
-    if (cache_list_.size() >= size_) {
+    if (cache_hashtable_.size() >= size_) {
         PageT page_to_drop;
+        KeyT page_key_to_drop;
         int max_occurence = 0;
         
-        for (auto& cache_list_element : cache_list_) {
-            auto future_page = future_page_indexes_.find(cache_list_element);
+        for (auto cache_element : cache_hashtable_) {
+            auto future_page = future_page_indexes_.find(cache_element.second);
             
-            if (future_page->second.size() == 0) {
+            if (future_page == future_page_indexes_.end()) {
                 // we found page wich we will no see in future, let's drop it!
-                page_to_drop = future_page->first; 
+                page_to_drop = cache_element.second;
+                page_key_to_drop = cache_element.first;
                 break;
             }
             else { // we'll see page in future once more
-                int last_occurence = future_page->second.back();
+                int last_occurence = future_page->second.front();
                 if (last_occurence > max_occurence) {
                     max_occurence = last_occurence;
-                    page_to_drop = future_page->first;
+                    page_to_drop = cache_element.second;
+                    page_key_to_drop = cache_element.first;
                 }
             }
         }
         
-        #ifdef _DEBUG
+        #ifdef _DEBUG_PRINT
         std::cout<<"FUTURE TABLE\n";
         for(auto it = future_page_indexes_.cbegin(); it != future_page_indexes_.cend(); ++it)
         {   
@@ -76,11 +77,12 @@ bool PerfectCache<KeyT, PageT>::delete_last_element_if_needed() {
             std::cout<<"\n";
         }
 
-        std::cout << "LIST SIZE: " << cache_list_.size() << " PAGE TO DROP: " << page_to_drop << std::endl;
+        std::cout << "Gonna drop page: " << page_to_drop << "\n";
         #endif
 
-        std::erase_if(cache_hashtable_, [&](const auto& item) { return *(item.second) == page_to_drop; });
-        cache_list_.remove(page_to_drop);
+        // std::erase_if(cache_hashtable_, [&](const auto& item) { return *(item.second) == page_to_drop; });
+        
+        cache_hashtable_.erase(page_key_to_drop);
 
         return true;
     }
@@ -91,23 +93,21 @@ bool PerfectCache<KeyT, PageT>::delete_last_element_if_needed() {
 template <typename KeyT, typename PageT>
 bool PerfectCache<KeyT, PageT>::push (const KeyT& key, const PageT& page) {
     
-    future_page_indexes_[page].erase(future_page_indexes_[page].begin());
+    future_page_indexes_[page].pop_front();
+
+    if (future_page_indexes_[page].empty())
+        future_page_indexes_.erase(page);
 
     if (lookup(key))
         return true;
 
-    #ifdef _DEBUG
+    #ifdef _DEBUG_PRINT
     std::cout<<"CACHE HASH TABLE\n";
-        for(auto it = cache_hashtable_.cbegin(); it != cache_hashtable_.cend(); ++it)
+        for(auto it : cache_hashtable_)
         {   
-            std::cout << it->first << ":" << *it->second;
+            std::cout << it.first << ":" << it.second;
             std::cout<<"\n";
         }
-
-    std::cout << "CUR LIST: \n";
-    for (auto& el_it: cache_list_){
-        std::cout << el_it << ", ";
-    }
     
     std::cout<<"\n";
     std::cout << "GONNA PUSH PAGE: " << page << "\n";
@@ -115,8 +115,7 @@ bool PerfectCache<KeyT, PageT>::push (const KeyT& key, const PageT& page) {
     
     delete_last_element_if_needed();
 
-    cache_list_.push_back(page);
-    cache_hashtable_.insert({key, std::prev(cache_list_.cend())});
+    cache_hashtable_.insert({key, page});
     
     return false;
 }
