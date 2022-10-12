@@ -3,7 +3,10 @@
 #include <vector>
 
 
-namespace cache {
+namespace perfect_cache {
+    
+template <typename KeyT, typename PageT>
+using data_t = std::vector<std::pair<KeyT, PageT>>;
 
 template <typename KeyT, typename PageT>
 class PerfectCache {
@@ -12,25 +15,27 @@ class PerfectCache {
         int size_ = 0;
         std::unordered_map<KeyT, PageT> cache_hashtable_;
         std::unordered_map<PageT, std::list<int>> future_page_indexes_;
-        void fill_future_indexes(const std::vector<PageT>& pages);
+        void fill_future_indexes(const data_t<PageT, KeyT> &data);
         bool delete_last_element_if_needed();
+        bool need_to_insert(PageT page);
 
     public:
-        PerfectCache(const int size, const std::vector<PageT>& pages): 
+        PerfectCache(const int size, const data_t<PageT, KeyT> &data): 
             size_(size), cache_hashtable_(), future_page_indexes_() {
-                fill_future_indexes(pages);
+                fill_future_indexes(data);
         }
 
         bool push (const KeyT& key, const PageT& page);
         bool lookup (const KeyT& key) const;
         void print () const;
         void print_future_table() const;
-};  
+};
 
 template <typename KeyT, typename PageT>
-void PerfectCache<KeyT, PageT>::fill_future_indexes(const std::vector<PageT>& pages) {
+void PerfectCache<KeyT, PageT>::fill_future_indexes(const data_t<PageT, KeyT> &data) {
     int idx = 0;
-    for (auto& page : pages) {
+    for (auto &element : data) {
+        auto page = element.second;
         auto hashtable_element = future_page_indexes_.find(page);
 
         if (hashtable_element != future_page_indexes_.cend())
@@ -43,8 +48,22 @@ void PerfectCache<KeyT, PageT>::fill_future_indexes(const std::vector<PageT>& pa
 }
 
 template <typename KeyT, typename PageT>
+bool PerfectCache<KeyT, PageT>::need_to_insert(PageT page) {
+    // we don't push key ONLY if its next appearence is later
+    // then all next appearances of keys which are already in cache
+
+    auto insert_candidate = future_page_indexes_.find(page);
+
+    if (insert_candidate == future_page_indexes_.end())
+        return false;
+
+    return true;
+}
+
+
+template <typename KeyT, typename PageT>
 bool PerfectCache<KeyT, PageT>::delete_last_element_if_needed() {
-    if (cache_hashtable_.size() > size_) {
+    if (cache_hashtable_.size() == size_) {
         PageT page_to_drop;
         KeyT page_key_to_drop;
         int max_occurence = 0;
@@ -94,7 +113,7 @@ bool PerfectCache<KeyT, PageT>::push (const KeyT& key, const PageT& page) {
 
     print();
 
-    if (future_page_indexes_.find(page) != future_page_indexes_.end())
+    if (need_to_insert(page))
         std::cout << "GONNA PUSH PAGE: " << page << "\n";
     else
         std::cout << "NOT GONNA PUSH PAGE: " << page << "\n";
@@ -104,11 +123,15 @@ bool PerfectCache<KeyT, PageT>::push (const KeyT& key, const PageT& page) {
 
     if (lookup(key))
         return true;
-    
-    delete_last_element_if_needed();
+        
+    // std::cout << "NEED TO INSERT?\n" << need_to_insert(page) << "\n"; 
+    if (need_to_insert(page)) {
+        delete_last_element_if_needed();
 
-    if (future_page_indexes_.find(page) != future_page_indexes_.end())
+    // if (future_page_indexes_.find(page) != future_page_indexes_.end())
         cache_hashtable_.insert({key, page});
+    }
+    //FIXME we don't push key ONLY if its next appearence is later then all next appearances of keys which are already in cache
     
     return false;
 }
@@ -150,6 +173,32 @@ void PerfectCache<KeyT, PageT>::print_future_table () const {
     
     std::cout<<"\n";
 
+}
+
+// some helper functions
+
+template <typename KeyT, typename PageT>
+int count_hits(const int size, const data_t<KeyT, PageT> &data) {
+    PerfectCache<KeyT, PageT> perfect_cache{size, data};
+
+    int hits = 0;
+    for (auto &element : data)
+        hits += perfect_cache.push(element.first, element.second);
+
+    return hits;
+}
+
+template <typename KeyT, typename PageT>
+data_t<PageT, KeyT> get_vec_of_pairs (std::vector<KeyT> &keys, std::vector<PageT> &pages) {
+    assert (keys.size() != pages.size());
+
+    data_t<PageT, KeyT> target;
+
+    // target.reserve(keys.size());
+    std::transform(keys.begin(), keys.end(), pages.begin(), std::back_inserter(target),
+                [](KeyT key, PageT page) { return std::make_pair(key, page); });
+
+    return target;
 }
 
 } // namespace cache
